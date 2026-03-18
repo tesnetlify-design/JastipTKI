@@ -1,0 +1,35 @@
+{
+  "name": "JastipTKI — Jasa Kirim & Titip Beli ke 280 Negara",
+  "short_name": "JastipTKI",
+  "description": "Jasa pengiriman barang dan titip beli produk Indonesia ke 280 negara. Terpercaya untuk TKI & WNI di seluruh dunia.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "lang": "id",
+  "categories": ["shopping", "logistics", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "JastipTKI - Kirim Barang ke Luar Negeri"
+    }
+  ]
+}

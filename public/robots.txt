@@ -1,0 +1,29 @@
+# JastipTKI — robots.txt
+# Jasa Kirim & Titip Beli Barang ke 280 Negara
+
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /*.json$
+Allow: /manifest.json
+Allow: /sitemap.xml
+
+# Izinkan semua crawler besar
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: facebot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+# Sitemap
+Sitemap: https://jastiptki.com/sitemap.xml
