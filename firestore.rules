@@ -1,0 +1,149 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: cek apakah user adalah admin (termasuk super_admin)
+    function isAdmin() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
+    }
+
+    // Helper: cek apakah user adalah super_admin
+    function isSuperAdmin() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
+    }
+
+    // Helper: cek apakah user sudah login
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    // 1. Profil Pengguna
+    match /users/{userId} {
+      allow read, write: if isLoggedIn() && request.auth.uid == userId;
+      allow read, write: if isAdmin();
+      // Proteksi: hanya super_admin yang bisa update field 'role' dan 'menuPermissions'
+      // Admin biasa tidak bisa mengubah role atau permission siapapun
+      allow update: if isAdmin() && 
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['role', 'menuPermissions']) 
+                    || isSuperAdmin();
+
+      // Subcollection meta (onboarding, dll) — hanya user sendiri
+      match /meta/{document} {
+        allow read, write: if isLoggedIn() && request.auth.uid == userId;
+      }
+    }
+
+    // 2. Transaksi
+    match /transactions/{transactionId} {
+      allow read: if isLoggedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isLoggedIn() && request.resource.data.userId == request.auth.uid;
+      // Update biasa oleh pemilik transaksi
+      allow update: if isLoggedIn() && resource.data.userId == request.auth.uid
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                       .hasAny(['amount', 'userId', 'type', 'destination']);
+      // Konfirmasi penerimaan: hanya pemilik, hanya dari SHIPPING ke DELIVERED
+      allow update: if isLoggedIn()
+                    && resource.data.userId == request.auth.uid
+                    && resource.data.status == 'SHIPPING'
+                    && request.resource.data.status == 'DELIVERED'
+                    && request.resource.data.confirmedByUser == true
+                    && request.resource.data.keys().hasAll(['confirmedAt']);
+      allow read, write: if isAdmin();
+    }
+
+    // 3. Voucher
+    match /vouchers/{voucherId} {
+      allow read: if isLoggedIn();
+      // User hanya boleh update field usedCount (saat klaim) — tidak boleh ubah harga, quota, dsb.
+      allow update: if isLoggedIn() &&
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['discountValue', 'discountType', 'quota', 'isActive', 'code',
+                                 'title', 'description', 'targetUser', 'startDate', 'endDate', 'priority']);
+      allow create, delete: if isAdmin();
+    }
+
+    // 4. Testimoni
+    match /testimonials/{testimonialId} {
+      allow read: if true;
+      allow create: if isLoggedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // 5. App Config
+    match /settings/app_config {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 5b. Cache Manifest — boleh dibaca semua (termasuk user tidak login)
+    // Hanya admin yang bisa update (otomatis via bumpCacheManifest)
+    match /settings/cache_manifest {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 5c. Product Categories — 1 dokumen berisi array kategori unik
+    // Dibaca user untuk menampilkan filter kategori (1 read, hemat kuota)
+    // Di-update otomatis oleh admin setiap ada perubahan produk
+    match /settings/product_categories {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 6. Produk Katalog
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 7. Payment Config
+    match /payment_config/global {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 8. Shipping Rates
+    match /shipping_rates/{rateId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 9. Feature Flags
+    match /feature_flags/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 10. Transaction Config
+    match /transaction_config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 11. Order Counters
+    match /orderCounters/{counterId} {
+      allow get, list: if isLoggedIn();
+      allow create, update: if isLoggedIn();
+      allow read, write: if isAdmin();
+    }
+
+    // 12. Referral Data
+    match /referrals/{userId} {
+      // User bisa baca dokumen referral miliknya sendiri
+      allow read: if isLoggedIn() && request.auth.uid == userId;
+      // User bisa QUERY collection untuk mencari referrer berdasarkan kode (diperlukan saat register)
+      // Tanpa ini, processReferralReward tidak bisa menemukan dokumen referrer → reward tidak jalan
+      allow list: if isLoggedIn();
+      // User bisa buat dokumen referral untuk dirinya sendiri
+      allow create: if isLoggedIn() && request.auth.uid == userId;
+      // Update referral hanya untuk field yang diizinkan (kode referral tidak boleh diubah user sendiri)
+      // Referral rewards & referred users diupdate via runTransaction (diizinkan karena operasi atomik)
+      allow update: if isLoggedIn();
+      // Admin bisa baca semua data referral untuk dashboard statistik
+      allow read, write: if isAdmin();
+    }
+  }
+}
